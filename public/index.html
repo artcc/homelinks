@@ -5,12 +5,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Homelinks</title>
-  <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+  <link rel="icon" type="image/png" href="/logo_white.png" />
+  <link rel="icon" type="image/png" href="/logo_black.png" media="(prefers-color-scheme: dark)" />
   <link rel="stylesheet" href="/styles.css" />
   <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 
-<body style="visibility: hidden;">
+<body class="dashboard-page" style="visibility: hidden;">
   <script>
     // Check session before showing content to prevent flash
     (async function () {
@@ -30,95 +31,171 @@
     })();
   </script>
 
-  <main class="container">
-    <header class="header">
-      <div class="header-content">
-        <h1>
-          <img src="/icon.svg" alt="" class="icon-logo">
-          Homelinks
-        </h1>
-        <p>Quick access to your Docker apps</p>
-      </div>
-      <div class="header-actions">
-        <button id="view-toggle-btn" class="btn-ghost btn-icon-label" title="Toggle view" aria-label="Toggle view">
-          <i data-lucide="grid-3x3" id="view-icon"></i>
-        </button>
-        <button id="theme-toggle-btn" class="btn-ghost btn-icon-label" title="Toggle theme" aria-label="Toggle theme">
+  <a class="skip-link" href="#app-library">Skip to your apps</a>
+
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="Homelinks home">
+      <span class="brand-mark">
+        <span class="icon-logo theme-logo" aria-hidden="true"></span>
+      </span>
+      <span class="brand-copy">
+        <strong>Homelinks</strong>
+        <small>Home service directory</small>
+      </span>
+    </a>
+
+    <div class="header-actions" aria-label="Workspace actions">
+      <div class="action-group">
+        <button id="theme-toggle-btn" class="btn-ghost btn-icon-label" title="Change theme" aria-label="Change theme">
           <i data-lucide="monitor" id="theme-icon"></i>
+          <span class="action-label">Theme</span>
         </button>
+      </div>
+      <div class="action-group backup-actions">
         <button id="export-btn" class="btn-ghost" title="Export backup" aria-label="Export backup">
           <i data-lucide="download"></i>
-          <span>Export</span>
+          <span class="action-label">Export</span>
         </button>
         <button id="import-btn" class="btn-ghost" title="Import backup" aria-label="Import backup">
           <i data-lucide="upload"></i>
-          <span>Import</span>
-        </button>
-        <input type="file" id="import-zip-input" accept=".zip,application/zip" hidden />
-        <button id="logout-btn" class="btn-ghost" aria-label="Log out">
-          <i data-lucide="log-out"></i>
-          <span>Logout</span>
+          <span class="action-label">Import</span>
         </button>
       </div>
-    </header>
+      <input type="file" id="import-zip-input" accept=".zip,application/zip" hidden />
+      <button id="logout-btn" class="btn-ghost logout-button" title="Log out" aria-label="Log out">
+        <i data-lucide="log-out"></i>
+        <span class="action-label">Logout</span>
+      </button>
+    </div>
+  </header>
 
-    <button id="add-app-btn" class="btn-primary btn-add-app">
-      <i data-lucide="plus"></i>
-      <span>Add app</span>
-    </button>
+  <main class="container">
+    <section class="dashboard-intro" aria-labelledby="page-title">
+      <div class="intro-copy">
+        <p class="eyebrow"><span class="status-dot"></span> Private home dashboard</p>
+        <h1 id="page-title">Everything at home,<br><span>one click away.</span></h1>
+        <p class="intro-text">A calm, organized place for every service running on your network.</p>
+        <button id="add-app-btn" class="btn-primary btn-add-app">
+          <span class="button-icon"><i data-lucide="plus"></i></span>
+          <span>Add an app</span>
+        </button>
+      </div>
 
-    <section id="form-section" class="form-card" hidden>
-      <h2 id="form-title">New app</h2>
-      <form id="app-form">
-        <input type="hidden" id="app-id" />
-        <label>
-          Name
-          <input type="text" id="name" placeholder="Portainer" required />
-        </label>
-        <label>
-          URL
-          <input type="text" id="url" placeholder="http://server:9000" required />
-        </label>
-        <label>
-          Category (optional)
-          <input type="text" id="category" placeholder="e.g., Media, Dev Tools, Monitoring" list="category-suggestions"
-            maxlength="50" />
-          <datalist id="category-suggestions"></datalist>
-        </label>
-        <label>
-          Description (optional)
-          <textarea id="description" placeholder="Add notes about this app..." rows="3" maxlength="500"></textarea>
-        </label>
-        <label>
-          Image (optional, max 1024x1024, 1MB)
-          <input type="file" id="image" accept="image/png,image/jpeg,image/webp" />
-          <div id="image-preview" class="image-preview" hidden>
-            <img id="preview-img" alt="Preview" />
-            <button type="button" id="remove-preview" class="btn-icon" title="Remove image">
-              <i data-lucide="x"></i>
-            </button>
-          </div>
-        </label>
-        <div id="form-error" class="form-error" hidden></div>
-        <div class="form-actions">
-          <button type="submit" id="save-btn">Save</button>
-          <button type="button" id="cancel-btn" class="btn-ghost">
-            Cancel
-          </button>
-        </div>
-      </form>
+      <div class="signal-map" aria-hidden="true">
+        <span class="signal-path path-one"></span>
+        <span class="signal-path path-two"></span>
+        <span class="signal-path path-three"></span>
+        <span class="signal-node node-one"><i data-lucide="play"></i></span>
+        <span class="signal-node node-two"><i data-lucide="database"></i></span>
+        <span class="signal-node node-three"><i data-lucide="activity"></i></span>
+        <span class="signal-core">
+          <span class="icon-logo theme-logo"></span>
+          <small>Home</small>
+        </span>
+      </div>
     </section>
 
-    <section class="list-card">
-      <h2>Apps</h2>
-      <div class="list-toolbar">
-        <i data-lucide="search" class="search-icon"></i>
-        <input type="search" id="search" placeholder="Search apps..." autocomplete="off" />
-        <select id="category-filter" class="category-filter">
-          <option value="">All categories</option>
-        </select>
-        <span id="count" class="count"></span>
+    <section id="form-section" class="editor-overlay" aria-labelledby="form-title" hidden>
+      <button type="button" id="form-backdrop" class="editor-backdrop" tabindex="-1" aria-label="Close app editor"></button>
+      <div class="editor-panel" role="dialog" aria-modal="true">
+        <div class="editor-header">
+          <div>
+            <p class="section-kicker">Service details</p>
+            <h2 id="form-title">New app</h2>
+            <p>Add the essentials now. You can always refine them later.</p>
+          </div>
+          <button type="button" id="close-form-btn" class="btn-icon close-editor" title="Close" aria-label="Close app editor">
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+
+        <form id="app-form" class="editor-form">
+          <input type="hidden" id="app-id" />
+
+          <div class="form-field">
+            <label for="name">Name <span class="required-mark">Required</span></label>
+            <input type="text" id="name" placeholder="Portainer" autocomplete="off" required />
+          </div>
+
+          <div class="form-field">
+            <label for="url">URL <span class="required-mark">Required</span></label>
+            <input type="text" id="url" placeholder="server.local:9000" inputmode="url" autocomplete="url" required />
+            <p class="field-help">You can omit http:// or https://.</p>
+          </div>
+
+          <div class="form-field">
+            <label for="category">Category <span>Optional</span></label>
+            <input type="text" id="category" placeholder="Media, tools, monitoring..." list="category-suggestions"
+              maxlength="50" autocomplete="off" />
+            <datalist id="category-suggestions"></datalist>
+          </div>
+
+          <div class="form-field">
+            <label for="description">Description <span>Optional</span></label>
+            <textarea id="description" placeholder="What is this service for?" rows="4" maxlength="500"></textarea>
+          </div>
+
+          <div class="form-field">
+            <label for="image">Cover image <span>Optional</span></label>
+            <p class="field-help">PNG, JPG or WebP. Up to 1024 x 1024 and 1 MB.</p>
+            <div class="file-control">
+              <i data-lucide="image-plus"></i>
+              <input type="file" id="image" accept="image/png,image/jpeg,image/webp" />
+            </div>
+            <div id="image-preview" class="image-preview" hidden>
+              <img id="preview-img" alt="Selected app image preview" />
+              <button type="button" id="remove-preview" class="btn-icon" title="Remove image" aria-label="Remove selected image">
+                <i data-lucide="x"></i>
+              </button>
+            </div>
+          </div>
+
+          <div id="form-error" class="form-error" role="alert" hidden></div>
+
+          <div class="form-actions">
+            <button type="button" id="cancel-btn" class="btn-ghost">Cancel</button>
+            <button type="submit" id="save-btn">Save app</button>
+          </div>
+        </form>
       </div>
+    </section>
+
+    <section class="list-card" id="app-library" aria-labelledby="library-title">
+      <div class="library-heading">
+        <div>
+          <p class="section-kicker">Service directory</p>
+          <div class="library-title-row">
+            <h2 id="library-title">Your apps</h2>
+            <span id="count" class="count" aria-live="polite"></span>
+          </div>
+        </div>
+        <div class="view-control">
+          <span>Layout</span>
+          <button id="view-toggle-btn" class="btn-ghost btn-icon-label" title="Change layout" aria-label="Change layout">
+            <i data-lucide="grid-3x3" id="view-icon"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="list-toolbar" role="search">
+        <div class="search-field">
+          <i data-lucide="search" class="search-icon"></i>
+          <input type="search" id="search" placeholder="Search by name, URL or description" autocomplete="off"
+            aria-label="Search apps" />
+          <kbd class="search-shortcut" aria-hidden="true">/</kbd>
+          <button type="button" id="clear-search-btn" class="clear-search" aria-label="Clear search" title="Clear search" hidden>
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+        <label class="filter-field" for="category-filter">
+          <span class="sr-only">Filter by category</span>
+          <i data-lucide="list-filter"></i>
+          <select id="category-filter" class="category-filter">
+            <option value="">All categories</option>
+          </select>
+        </label>
+      </div>
+
       <div id="loading-state" class="loading-state" hidden aria-live="polite" aria-label="Loading apps">
         <span class="skeleton skeleton-heading"></span>
         <div class="skeleton-grid">
@@ -133,9 +210,13 @@
         <button type="button" id="retry-load-btn" class="btn-ghost">Try again</button>
       </div>
       <div id="empty" class="empty" hidden>
-        <i data-lucide="inbox" class="empty-icon" id="empty-icon"></i>
-        <p id="empty-message">You do not have any apps yet.</p>
-        <p class="empty-hint" id="empty-hint">Click <strong>Add app</strong> to get started!</p>
+        <span class="empty-visual"><i data-lucide="inbox" class="empty-icon" id="empty-icon"></i></span>
+        <h3 id="empty-message">No apps here yet</h3>
+        <p class="empty-hint" id="empty-hint">Add your first service to start building your home dashboard.</p>
+        <button type="button" id="empty-add-btn" class="btn-primary empty-add-button">
+          <i data-lucide="plus"></i>
+          <span>Add your first app</span>
+        </button>
       </div>
       <ul id="apps" class="apps"></ul>
       <div id="pagination" class="pagination" hidden>
@@ -172,16 +253,18 @@
         <p class="app-description"></p>
       </div>
       <div class="app-actions">
-         <button class="btn-primary open" title="Open in new tab" aria-label="Open app in new tab">
-          <i data-lucide="external-link"></i>
-          <span>Open</span>
+        <button class="btn-primary open" title="Open in new tab" aria-label="Open app in new tab">
+          <span>Open app</span>
+          <i data-lucide="arrow-up-right"></i>
         </button>
-         <button class="btn-ghost edit" title="Edit" aria-label="Edit app">
-          <i data-lucide="pencil"></i>
-        </button>
-         <button class="btn-ghost btn-danger delete" title="Delete" aria-label="Delete app">
-          <i data-lucide="trash-2"></i>
-        </button>
+        <div class="card-utilities">
+          <button class="btn-ghost edit" title="Edit" aria-label="Edit app">
+            <i data-lucide="pencil"></i>
+          </button>
+          <button class="btn-ghost btn-danger delete" title="Delete" aria-label="Delete app">
+            <i data-lucide="trash-2"></i>
+          </button>
+        </div>
       </div>
     </li>
   </template>
@@ -201,17 +284,17 @@
         <p class="list-item-description"></p>
       </div>
       <div class="list-item-actions">
-         <button class="btn-favorite" title="Toggle favorite" aria-label="Toggle favorite">
+        <button class="btn-favorite" title="Toggle favorite" aria-label="Toggle favorite">
           <i data-lucide="star" class="star-icon"></i>
         </button>
-         <button class="btn-primary open" title="Open in new tab" aria-label="Open app in new tab">
-          <i data-lucide="external-link"></i>
+        <button class="btn-primary open" title="Open in new tab" aria-label="Open app in new tab">
           <span>Open</span>
+          <i data-lucide="arrow-up-right"></i>
         </button>
-         <button class="btn-ghost edit" title="Edit" aria-label="Edit app">
+        <button class="btn-ghost edit" title="Edit" aria-label="Edit app">
           <i data-lucide="pencil"></i>
         </button>
-         <button class="btn-ghost btn-danger delete" title="Delete" aria-label="Delete app">
+        <button class="btn-ghost btn-danger delete" title="Delete" aria-label="Delete app">
           <i data-lucide="trash-2"></i>
         </button>
       </div>

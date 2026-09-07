@@ -5,7 +5,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Homelinks - Login</title>
-  <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+  <link rel="icon" type="image/png" href="/logo_white.png" />
+  <link rel="icon" type="image/png" href="/logo_black.png" media="(prefers-color-scheme: dark)" />
   <link rel="stylesheet" href="/styles.css" />
   <script src="https://unpkg.com/lucide@latest"></script>
 </head>
@@ -24,32 +25,69 @@
     })();
   </script>
 
-  <main class="container auth-container">
-    <header class="header auth-header">
-      <h1>
-        <img src="/icon.svg" alt="" class="icon-logo">
-        Homelinks
-      </h1>
-      <p class="auth-kicker">Your services, one click away</p>
-    </header>
+  <main class="auth-shell">
+    <section class="auth-showcase" aria-labelledby="showcase-title">
+      <a class="auth-brand" href="/" aria-label="Homelinks home">
+        <span class="icon-logo theme-logo logo-on-dark" aria-hidden="true"></span>
+        <span>Homelinks</span>
+      </a>
 
-    <section class="form-card auth-card" aria-labelledby="login-title">
-      <h2 id="login-title">Welcome back</h2>
-      <p class="auth-intro">Sign in to manage your Docker services.</p>
-      <form id="login-form">
-        <label>
-          Email
-          <input type="email" id="email" placeholder="you@example.com" required />
-        </label>
-        <label>
-          Password
-          <input type="password" id="password" placeholder="Your password" required />
-        </label>
-        <div id="login-error" class="form-error" hidden></div>
-        <div class="form-actions">
-          <button type="submit">Sign in</button>
+      <div class="auth-story">
+        <p class="auth-badge"><span class="status-dot"></span> Your private dashboard</p>
+        <h1 id="showcase-title">Home is where<br>your stack runs.</h1>
+        <p>Every local service, organized and ready when you are.</p>
+
+        <div class="auth-features" aria-label="Homelinks highlights">
+          <div><i data-lucide="mouse-pointer-2"></i><span>One-click access</span></div>
+          <div><i data-lucide="hard-drive"></i><span>Stored at home</span></div>
+          <div><i data-lucide="shield-check"></i><span>Private by design</span></div>
         </div>
-      </form>
+      </div>
+
+      <p class="auth-signoff">Self-hosted. Simple. Yours.</p>
+    </section>
+
+    <section class="auth-panel">
+      <div class="auth-mobile-brand" aria-hidden="true">
+        <span class="icon-logo theme-logo"></span>
+        <span>Homelinks</span>
+      </div>
+
+      <div class="auth-card" aria-labelledby="login-title">
+        <p class="section-kicker">Welcome back</p>
+        <h2 id="login-title">Sign in to your home.</h2>
+        <p class="auth-intro">Use your administrator credentials to continue.</p>
+
+        <form id="login-form">
+          <div class="form-field">
+            <label for="email">Email</label>
+            <div class="input-frame">
+              <i data-lucide="mail"></i>
+              <input type="email" id="email" placeholder="you@example.com" autocomplete="username" autofocus required />
+            </div>
+          </div>
+
+          <div class="form-field">
+            <label for="password">Password</label>
+            <div class="input-frame">
+              <i data-lucide="lock-keyhole"></i>
+              <input type="password" id="password" placeholder="Your password" autocomplete="current-password" required />
+              <button type="button" id="toggle-password-btn" class="password-toggle" title="Show password" aria-label="Show password">
+                <i data-lucide="eye"></i>
+              </button>
+            </div>
+          </div>
+
+          <div id="login-error" class="form-error" role="alert" hidden></div>
+
+          <button type="submit" class="auth-submit">
+            <span>Sign in</span>
+            <i data-lucide="arrow-right"></i>
+          </button>
+        </form>
+
+        <p class="auth-security"><i data-lucide="shield-check"></i> Your session stays on this server.</p>
+      </div>
     </section>
   </main>
 

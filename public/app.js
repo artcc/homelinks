@@ -39,6 +39,12 @@ const exportBtn = document.getElementById("export-btn");
 const importBtn = document.getElementById("import-btn");
 const importZipInput = document.getElementById("import-zip-input");
 const toast = document.getElementById("toast");
+const closeFormBtn = document.getElementById("close-form-btn");
+const formBackdrop = document.getElementById("form-backdrop");
+const clearSearchBtn = document.getElementById("clear-search-btn");
+const searchShortcut = document.querySelector(".search-shortcut");
+const emptyAddBtn = document.getElementById("empty-add-btn");
+const appLibrary = document.getElementById("app-library");
 
 const maxImageBytes = 1 * 1024 * 1024;
 const maxImageSize = 1024;
@@ -49,6 +55,7 @@ let currentPage = 1;
 let lastImageError = "";
 let lastTotalPages = 1;
 let toastTimeout = null;
+let lastFormTrigger = addAppBtn;
 
 function showToast(message, type = "success") {
   if (!toast) return;
@@ -79,7 +86,9 @@ async function fetchApps() {
     window.location.href = "/login.html";
     return [];
   }
-  if (!response.ok) return [];
+  if (!response.ok) {
+    throw new Error("Failed to fetch apps");
+  }
   return response.json();
 }
 
@@ -172,7 +181,6 @@ function updateCategoryFilter(categories) {
 function setFormError(message) {
   formError.textContent = message;
   formError.hidden = !message;
-  lastImageError = message;
 }
 
 function paginate(items) {
@@ -225,23 +233,47 @@ function getFilteredApps() {
   return filtered;
 }
 
-function resetForm() {
+function closeForm(restoreFocus = true) {
+  formSection.hidden = true;
+  document.body.classList.remove("editor-open");
+
+  if (restoreFocus && lastFormTrigger && document.contains(lastFormTrigger)) {
+    lastFormTrigger.focus();
+  }
+}
+
+function resetForm(restoreFocus = true) {
   appId.value = "";
   formTitle.textContent = "New app";
-  saveBtn.textContent = "Save";
+  saveBtn.textContent = "Save app";
   form.reset();
   imageInput.value = "";
   categoryInput.value = "";
   descriptionInput.value = "";
   imagePreview.hidden = true;
   previewImg.src = "";
+  lastImageError = "";
   setFormError("");
-  formSection.hidden = true;
+  closeForm(restoreFocus);
 }
 
 function showForm() {
+  if (document.activeElement instanceof HTMLElement && document.activeElement !== document.body) {
+    lastFormTrigger = document.activeElement;
+  }
   formSection.hidden = false;
+  document.body.classList.add("editor-open");
   nameInput.focus();
+}
+
+function getDisplayUrl(url) {
+  try {
+    const parsed = new URL(url);
+    const path = parsed.pathname === "/" ? "" : parsed.pathname.replace(/\/$/, "");
+    return `${parsed.host}${path}`;
+  } catch {
+    return url.replace(/^https?:\/\//, "").replace(/\/$/, "");
+  }
 }
 
 function setOptionalField(element, value) {
@@ -256,22 +288,28 @@ function setOptionalField(element, value) {
 function renderApps(apps) {
   list.innerHTML = "";
 
-  // Determinar si estamos buscando
   const isSearching = searchInput.value.trim().length > 0;
+  const isFiltering = categoryFilter.value.trim().length > 0;
   const hasApps = apps.length > 0;
 
   empty.hidden = hasApps;
 
-  // Actualizar mensaje según contexto
   if (!hasApps) {
     if (isSearching) {
       emptyIcon.setAttribute("data-lucide", "search-x");
-      emptyMessage.textContent = "No apps found.";
-      emptyHint.textContent = "Try a different search term.";
+      emptyMessage.textContent = "Nothing matches your search";
+      emptyHint.textContent = "Try another name, URL, category or description.";
+      emptyAddBtn.hidden = true;
+    } else if (isFiltering) {
+      emptyIcon.setAttribute("data-lucide", "list-filter");
+      emptyMessage.textContent = "No apps in this category";
+      emptyHint.textContent = "Choose another category to see more services.";
+      emptyAddBtn.hidden = true;
     } else if (allApps.length === 0) {
       emptyIcon.setAttribute("data-lucide", "inbox");
-      emptyMessage.textContent = "You do not have any apps yet.";
-      emptyHint.innerHTML = 'Click <strong>Add app</strong> to get started!';
+      emptyMessage.textContent = "No apps here yet";
+      emptyHint.textContent = "Add your first service to start building your home dashboard.";
+      emptyAddBtn.hidden = false;
     }
     if (typeof lucide !== 'undefined') {
       lucide.createIcons();
@@ -306,8 +344,9 @@ function renderApps(apps) {
     const starIcon = node.querySelector(".star-icon");
 
     name.textContent = app.name;
-    link.textContent = app.url;
+    link.textContent = getDisplayUrl(app.url);
     link.href = app.url;
+    link.title = app.url;
 
     // Display category and description if they exist
     setOptionalField(category, app.category);
@@ -315,6 +354,8 @@ function renderApps(apps) {
 
     if (app.image_url) {
       thumb.src = app.image_url;
+      thumb.loading = "lazy";
+      thumb.decoding = "async";
       thumb.hidden = false;
     } else {
       thumb.hidden = true;
@@ -330,8 +371,19 @@ function renderApps(apps) {
       starIcon.classList.remove("star-filled");
     }
 
+    favoriteBtn.setAttribute("aria-pressed", app.favorite ? "true" : "false");
+    favoriteBtn.setAttribute(
+      "aria-label",
+      app.favorite ? `Remove ${app.name} from favorites` : `Add ${app.name} to favorites`
+    );
+    favoriteBtn.title = app.favorite ? "Remove from favorites" : "Add to favorites";
+    openBtn.setAttribute("aria-label", `Open ${app.name} in a new tab`);
+    editBtn.setAttribute("aria-label", `Edit ${app.name}`);
+    deleteBtn.setAttribute("aria-label", `Delete ${app.name}`);
+
     favoriteBtn.addEventListener("click", async (e) => {
       e.stopPropagation();
+      favoriteBtn.disabled = true;
       try {
         const response = await fetch(`/api/apps/${app.id}/favorite`, { method: "PATCH" });
         if (response.status === 401) {
@@ -340,9 +392,14 @@ function renderApps(apps) {
         }
         if (response.ok) {
           await load();
+        } else {
+          showToast("Could not update favorite", "error");
         }
       } catch (err) {
         console.error("Error toggling favorite:", err);
+        showToast("Could not update favorite", "error");
+      } finally {
+        favoriteBtn.disabled = false;
       }
     });
 
@@ -357,7 +414,7 @@ function renderApps(apps) {
       categoryInput.value = app.category || "";
       descriptionInput.value = app.description || "";
       formTitle.textContent = "Edit app";
-      saveBtn.textContent = "Update";
+      saveBtn.textContent = "Save changes";
 
       // Mostrar imagen actual en el preview si existe
       if (app.image_url) {
@@ -378,8 +435,11 @@ function renderApps(apps) {
       if (!confirm(`Delete "${app.name}"?`)) return;
 
       deleteBtn.disabled = true;
-      const originalText = deleteBtn.textContent;
-      deleteBtn.textContent = "Deleting...";
+      const originalMarkup = deleteBtn.innerHTML;
+      deleteBtn.innerHTML = '<i data-lucide="loader-circle" class="spin"></i>';
+      if (typeof lucide !== "undefined") {
+        lucide.createIcons();
+      }
 
       try {
         const response = await fetch(`/api/apps/${app.id}`, { method: "DELETE" });
@@ -399,7 +459,10 @@ function renderApps(apps) {
         showToast("Network error, please try again", "error");
       } finally {
         deleteBtn.disabled = false;
-        deleteBtn.textContent = originalText;
+        deleteBtn.innerHTML = originalMarkup;
+        if (typeof lucide !== "undefined") {
+          lucide.createIcons();
+        }
       }
     });
 
@@ -558,14 +621,16 @@ form.addEventListener("submit", async (event) => {
       return;
     }
 
-    resetForm();
+    resetForm(false);
     await load();
+    showToast(id ? "App updated successfully" : "App added successfully", "success");
+    addAppBtn.focus();
   } catch (err) {
     console.error("Error saving app:", err);
     setFormError("Network error, please try again");
   } finally {
     saveBtn.disabled = false;
-    saveBtn.textContent = originalText;
+    saveBtn.textContent = formSection.hidden ? "Save app" : originalText;
   }
 });
 
@@ -576,6 +641,7 @@ cancelBtn.addEventListener("click", () => {
 imageInput.addEventListener("change", async () => {
   const file = imageInput.files[0];
   if (!file) {
+    lastImageError = "";
     setFormError("");
     imagePreview.hidden = true;
     return;
@@ -583,10 +649,12 @@ imageInput.addEventListener("change", async () => {
 
   const message = await validateImageFile(file);
   if (message) {
+    lastImageError = message;
     setFormError(message);
     imageInput.value = "";
     imagePreview.hidden = true;
   } else {
+    lastImageError = "";
     setFormError("");
     // Mostrar preview
     const reader = new FileReader();
@@ -605,11 +673,25 @@ removePreviewBtn.addEventListener("click", () => {
   imageInput.value = "";
   imagePreview.hidden = true;
   previewImg.src = "";
+  lastImageError = "";
+  setFormError("");
 });
 
 searchInput.addEventListener("input", () => {
   currentPage = 1;
+  const hasQuery = searchInput.value.length > 0;
+  clearSearchBtn.hidden = !hasQuery;
+  searchShortcut.hidden = hasQuery;
   renderAndPaginate();
+});
+
+clearSearchBtn.addEventListener("click", () => {
+  searchInput.value = "";
+  clearSearchBtn.hidden = true;
+  searchShortcut.hidden = false;
+  currentPage = 1;
+  renderAndPaginate();
+  searchInput.focus();
 });
 
 categoryFilter.addEventListener("change", () => {
@@ -620,11 +702,13 @@ categoryFilter.addEventListener("change", () => {
 prevPageBtn.addEventListener("click", () => {
   currentPage = Math.max(1, currentPage - 1);
   renderAndPaginate();
+  appLibrary.scrollIntoView({ behavior: "smooth", block: "start" });
 });
 
 nextPageBtn.addEventListener("click", () => {
   currentPage += 1;
   renderAndPaginate();
+  appLibrary.scrollIntoView({ behavior: "smooth", block: "start" });
 });
 
 if (logoutBtn) {
@@ -635,14 +719,32 @@ if (logoutBtn) {
 }
 
 addAppBtn.addEventListener("click", () => {
+  resetForm(false);
   showForm();
+});
+
+emptyAddBtn.addEventListener("click", () => {
+  resetForm(false);
+  showForm();
+});
+
+closeFormBtn.addEventListener("click", () => {
+  resetForm();
+});
+
+formBackdrop.addEventListener("click", () => {
+  resetForm();
 });
 
 if (exportBtn) {
   exportBtn.addEventListener("click", async () => {
     exportBtn.disabled = true;
-    const originalText = exportBtn.innerHTML;
-    exportBtn.innerHTML = '<span>Exporting...</span>';
+    exportBtn.setAttribute("aria-busy", "true");
+    const originalMarkup = exportBtn.innerHTML;
+    exportBtn.innerHTML = '<i data-lucide="loader-circle" class="spin"></i><span class="action-label">Exporting</span>';
+    if (typeof lucide !== "undefined") {
+      lucide.createIcons();
+    }
     try {
       await exportBackup();
       showToast("Backup exported successfully", "success");
@@ -650,7 +752,8 @@ if (exportBtn) {
       showToast(err.message || "Failed to export backup", "error");
     } finally {
       exportBtn.disabled = false;
-      exportBtn.innerHTML = originalText;
+      exportBtn.removeAttribute("aria-busy");
+      exportBtn.innerHTML = originalMarkup;
       if (typeof lucide !== 'undefined') {
         lucide.createIcons();
       }
@@ -677,12 +780,16 @@ if (importBtn && importZipInput) {
     }
 
     importBtn.disabled = true;
-    const originalText = importBtn.innerHTML;
-    importBtn.innerHTML = '<span>Importing...</span>';
+    importBtn.setAttribute("aria-busy", "true");
+    const originalMarkup = importBtn.innerHTML;
+    importBtn.innerHTML = '<i data-lucide="loader-circle" class="spin"></i><span class="action-label">Importing</span>';
+    if (typeof lucide !== "undefined") {
+      lucide.createIcons();
+    }
 
     try {
       await importBackup(file);
-      resetForm();
+      resetForm(false);
       currentPage = 1;
       await load();
       showToast("Backup imported successfully", "success");
@@ -690,7 +797,8 @@ if (importBtn && importZipInput) {
       showToast(err.message || "Failed to import backup", "error");
     } finally {
       importBtn.disabled = false;
-      importBtn.innerHTML = originalText;
+      importBtn.removeAttribute("aria-busy");
+      importBtn.innerHTML = originalMarkup;
       importZipInput.value = "";
       if (typeof lucide !== 'undefined') {
         lucide.createIcons();
@@ -705,6 +813,12 @@ const THEME_ICONS = {
   auto: "monitor",
   light: "sun",
   dark: "moon"
+};
+
+const THEME_LABELS = {
+  auto: "System",
+  light: "Light",
+  dark: "Dark"
 };
 
 function getStoredTheme() {
@@ -736,6 +850,17 @@ function setTheme(theme) {
       lucide.createIcons();
     }
   }
+
+  const nextTheme = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length];
+  const themeLabel = themeToggleBtn.querySelector(".action-label");
+  if (themeLabel) {
+    themeLabel.textContent = THEME_LABELS[theme];
+  }
+  themeToggleBtn.title = `Theme: ${THEME_LABELS[theme]}. Switch to ${THEME_LABELS[nextTheme]}`;
+  themeToggleBtn.setAttribute(
+    "aria-label",
+    `Current theme: ${THEME_LABELS[theme]}. Switch to ${THEME_LABELS[nextTheme]}`
+  );
 }
 
 function cycleTheme() {
@@ -757,7 +882,7 @@ function getStoredView() {
   return localStorage.getItem("view") || "grid";
 }
 
-function setView(view) {
+function setView(view, shouldRender = true) {
   localStorage.setItem("view", view);
 
   // Update list class
@@ -779,8 +904,13 @@ function setView(view) {
     }
   }
 
-  // Re-render apps with new view
-  renderAndPaginate();
+  const nextView = view === "grid" ? "list" : "grid";
+  viewToggleBtn.title = `Switch to ${nextView} view`;
+  viewToggleBtn.setAttribute("aria-label", `Current layout: ${view}. Switch to ${nextView} view`);
+
+  if (shouldRender) {
+    renderAndPaginate();
+  }
 }
 
 function cycleView() {
@@ -799,10 +929,47 @@ themeToggleBtn.addEventListener("click", () => {
 });
 
 // Initialize view
-setView(getStoredView());
+setView(getStoredView(), false);
 
 viewToggleBtn.addEventListener("click", () => {
   cycleView();
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !formSection.hidden) {
+    resetForm();
+    return;
+  }
+
+  if (
+    event.key === "/" &&
+    formSection.hidden &&
+    !event.ctrlKey &&
+    !event.metaKey &&
+    !event.altKey &&
+    !["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement.tagName)
+  ) {
+    event.preventDefault();
+    searchInput.focus();
+  }
+
+  if (event.key === "Tab" && !formSection.hidden) {
+    const focusable = Array.from(
+      formSection.querySelectorAll(
+        'button:not([disabled]):not([tabindex="-1"]), input:not([disabled]), textarea:not([disabled]), select:not([disabled])'
+      )
+    ).filter((element) => !element.hidden);
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
 });
 
 load();

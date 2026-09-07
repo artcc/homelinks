@@ -1,4 +1,4 @@
-# <img src="public/icon.svg" width="32" height="32" alt="" style="vertical-align: center;"> Homelinks
+# <img src="public/logo_white.png" width="48" height="48" alt="" style="vertical-align: middle;"> Homelinks
 
 Keep all your Docker services organized in one place. A modern, self-hosted dashboard designed for Docker deployments. Quick access to your apps with a clean UI, favorites, dark mode, and persistent SQLite storage.
 

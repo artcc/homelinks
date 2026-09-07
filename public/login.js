@@ -2,6 +2,7 @@ const form = document.getElementById("login-form");
 const emailInput = document.getElementById("email");
 const passwordInput = document.getElementById("password");
 const errorBox = document.getElementById("login-error");
+const togglePasswordBtn = document.getElementById("toggle-password-btn");
 
 function setError(message) {
   errorBox.textContent = message;
@@ -9,13 +10,29 @@ function setError(message) {
 }
 
 async function checkSession() {
-  const response = await fetch("/api/session");
-  if (!response.ok) return;
-  const data = await response.json();
-  if (data.authenticated) {
-    window.location.href = "/";
+  try {
+    const response = await fetch("/api/session");
+    if (!response.ok) return;
+    const data = await response.json();
+    if (data.authenticated) {
+      window.location.href = "/";
+    }
+  } catch (err) {
+    console.error("Session check failed:", err);
   }
 }
+
+togglePasswordBtn.addEventListener("click", () => {
+  const showPassword = passwordInput.type === "password";
+  passwordInput.type = showPassword ? "text" : "password";
+  togglePasswordBtn.title = showPassword ? "Hide password" : "Show password";
+  togglePasswordBtn.setAttribute("aria-label", togglePasswordBtn.title);
+  togglePasswordBtn.innerHTML = `<i data-lucide="${showPassword ? "eye-off" : "eye"}"></i>`;
+  if (typeof lucide !== "undefined") {
+    lucide.createIcons();
+  }
+  passwordInput.focus();
+});
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -23,8 +40,12 @@ form.addEventListener("submit", async (event) => {
 
   const submitBtn = event.target.querySelector('button[type="submit"]');
   submitBtn.disabled = true;
-  const originalText = submitBtn.textContent;
-  submitBtn.textContent = "Signing in...";
+  submitBtn.setAttribute("aria-busy", "true");
+  const originalMarkup = submitBtn.innerHTML;
+  submitBtn.innerHTML = '<span>Signing in...</span><i data-lucide="loader-circle" class="spin"></i>';
+  if (typeof lucide !== "undefined") {
+    lucide.createIcons();
+  }
 
   const payload = {
     email: emailInput.value.trim(),
@@ -50,7 +71,11 @@ form.addEventListener("submit", async (event) => {
     setError("Network error, please try again");
   } finally {
     submitBtn.disabled = false;
-    submitBtn.textContent = originalText;
+    submitBtn.removeAttribute("aria-busy");
+    submitBtn.innerHTML = originalMarkup;
+    if (typeof lucide !== "undefined") {
+      lucide.createIcons();
+    }
   }
 });
 

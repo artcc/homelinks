@@ -1,6 +1,6 @@
 {
   "name": "homelinks",
-  "version": "0.0.12",
+  "version": "0.0.13",
   "description": "Keep all your Docker apps in one place",
   "main": "src/server.js",
   "scripts": {
