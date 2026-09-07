@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.14] - 2026-09-07
+
+### Added
+
+- Added theme-aware light and dark logos across the dashboard, login page, favicons, and README
+- Added a clear-search action, `/` search shortcut, password visibility toggle, and app editor keyboard controls
+
+### Changed
+
+- Redesigned the dashboard with a compact navigation bar, stronger visual hierarchy, denser app cards, and a responsive service directory
+- Redesigned the login page with a focused split-screen layout and clearer credential feedback
+- Replaced the inline app form with an accessible side panel that preserves focus and adapts to mobile screens
+- Improved empty, loading, error, favorite, save, import, export, and notification states
+- Optimized the new logo assets for web delivery and removed the unused SVG icon
+
+### Fixed
+
+- App loading failures now show the error state instead of appearing as an empty library
+- Form submission errors no longer block subsequent retries through the image validation state
+- Icon-only actions retain their icons after failed asynchronous operations
+
 ## [0.0.13] - 2026-09-07
 
 ### Added
