@@ -1,11 +1,14 @@
 {
   "name": "homelinks",
-  "version": "0.0.13",
+  "version": "0.0.15",
   "description": "Keep all your Docker apps in one place",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test": "node --test tests/*.test.js",
+    "test:ui": "PLAYWRIGHT_BROWSERS_PATH=./node_modules/.cache/ms-playwright UI_TEST=1 node --test tests/*.test.js",
+    "test:ui:install": "TMPDIR=./node_modules PLAYWRIGHT_BROWSERS_PATH=./node_modules/.cache/ms-playwright playwright install chromium --only-shell"
   },
   "dependencies": {
     "adm-zip": "^0.6.0",
@@ -13,6 +16,7 @@
     "express": "^4.22.2",
     "express-rate-limit": "^8.6.1",
     "express-session": "^1.19.0",
+    "lucide": "0.468.0",
     "morgan": "^1.11.0",
     "multer": "^2.2.0",
     "picomatch": "^4.0.5",
@@ -20,6 +24,7 @@
     "sqlite3": "^6.0.1"
   },
   "devDependencies": {
+    "@playwright/test": "1.58.2",
     "eslint": "^8.57.0"
   },
   "overrides": {

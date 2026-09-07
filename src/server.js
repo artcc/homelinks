@@ -12,6 +12,8 @@ const {
   sessionSecret,
   trustProxy,
   uploadDir,
+  maxImageBytes,
+  maxImageSize,
 } = require("./config/env");
 const { requireAuthApi, requireAuthPage, isAuthenticated } = require("./middleware/auth");
 const appsRoutes = require("./routes/apps");
@@ -59,11 +61,34 @@ app.use((req, res, next) => {
   return next();
 });
 app.use(express.static(publicDir));
+app.get("/vendor/lucide.js", (req, res) => {
+  res.sendFile(require.resolve("lucide/dist/umd/lucide.min.js"));
+});
 
 app.use(healthRoutes);
 app.use(authRoutes);
 app.use(pagesRoutes);
-app.use("/api/apps", requireAuthApi, appsRoutes);
+app.get("/api/config", requireAuthApi, (req, res) => res.json({ maxImageBytes, maxImageSize }));
+// Keep multi-step database/filesystem operations isolated on the shared SQLite connection.
+let pending = Promise.resolve();
+app.use(["/api/apps", "/api/servers"], requireAuthApi, (req, res, next) => {
+  const previous = pending;
+  pending = new Promise((resolve) => {
+    previous.then(() => {
+      if (res.destroyed) return resolve();
+      req.once("aborted", () => {
+        if (!req.complete) resolve();
+      });
+      const end = res.end;
+      res.end = function (...args) {
+        try { return end.apply(this, args); } finally { resolve(); }
+      };
+      next();
+    });
+  });
+});
+app.use("/api/apps", appsRoutes);
+app.use("/api/servers", require("./routes/servers"));
 
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {

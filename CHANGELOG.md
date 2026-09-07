@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.15] - 2026-09-07
+
+### Added
+
+- Local named server groups with CRUD, a compact header selector and automatic migration of existing apps to Home
+- Per-server app/category queries, favorite ordering, remembered category and active-server selection
+- Drag-and-drop favorite ordering with keyboard and mobile button alternatives, persisted in SQLite
+- Duplicate service editor with independent image copying on save, and a server field for moving services
+- Integration tests covering legacy migration, server isolation, image lifecycle, old/new backups and process restarts; optional Chromium UI tests
+
+### Changed
+
+- ZIP schema version 2 includes all servers and favorite positions; version 1 and legacy array backups remain supported
+- Backup replacement validates server references, order values, ZIP paths, expanded size and images before committing
+- Lucide 0.468.0 is installed as a pinned local dependency instead of loading from a CDN
+- Frontend image limits and help text now come from authenticated backend configuration
+- README, contribution guidance and package/lock versions are aligned at 0.0.15
+
+### Fixed
+
+- Removing an image in the editor now clears its persisted reference and deletes the unused file on save
+- Invalid app submissions clean up uploaded files; image validation checks actual image formats and configured limits
+- Shared images from legacy backups remain available until their final app reference is removed
+- Stale server-list requests cannot overwrite the newly selected server's apps
+
 ## [0.0.14] - 2026-09-07
 
 ### Added

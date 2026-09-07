@@ -30,10 +30,17 @@ const initialization = new Promise((resolve, reject) => {
             ["favorite", "ALTER TABLE apps ADD COLUMN favorite INTEGER DEFAULT 0"],
             ["category", "ALTER TABLE apps ADD COLUMN category TEXT"],
             ["description", "ALTER TABLE apps ADD COLUMN description TEXT"],
+            ["server_id", "ALTER TABLE apps ADD COLUMN server_id INTEGER NOT NULL DEFAULT 1 REFERENCES servers(id)"],
+            ["favorite_order", "ALTER TABLE apps ADD COLUMN favorite_order INTEGER NOT NULL DEFAULT 0"],
           ];
-          const migrations = columns
-            .filter(([name]) => !rows.some((row) => row.name === name))
-            .map(([, sql]) => sql);
+          const migrations = [
+            "CREATE TABLE IF NOT EXISTS servers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)",
+            "INSERT INTO servers (id, name) SELECT 1, 'Home' WHERE NOT EXISTS (SELECT 1 FROM servers)",
+            ...columns
+              .filter(([name]) => !rows.some((row) => row.name === name))
+              .map(([, sql]) => sql),
+            "PRAGMA foreign_keys = ON",
+          ];
 
           const applyMigration = (index) => {
             if (index >= migrations.length) {
@@ -79,44 +86,49 @@ async function all(sql, params = []) {
 }
 
 module.exports = {
-  async listApps() {
+  async listApps(serverId = null) {
     return all(
-      "SELECT id, name, url, image_url, favorite, category, description, created_at FROM apps ORDER BY favorite DESC, name COLLATE NOCASE ASC"
+      "SELECT * FROM apps" + (serverId === null ? "" : " WHERE server_id = ?") + " ORDER BY favorite DESC, CASE WHEN favorite THEN favorite_order ELSE 0 END ASC, name COLLATE NOCASE ASC, id ASC",
+      serverId === null ? [] : [serverId]
     );
   },
   async getAppById(id) {
     const rows = await all(
-      "SELECT id, name, url, image_url, favorite, category, description FROM apps WHERE id = ?",
+      "SELECT * FROM apps WHERE id = ?",
       [id]
     );
     return rows[0] || null;
   },
-  async createApp(name, url, imageUrl = null, category = null, description = null) {
+  async createApp(name, url, imageUrl = null, category = null, description = null, serverId = 1) {
     const result = await run(
-      "INSERT INTO apps (name, url, image_url, favorite, category, description) VALUES (?, ?, ?, 0, ?, ?)",
-      [name, url, imageUrl, category, description]
+      "INSERT INTO apps (name, url, image_url, favorite, category, description, server_id) VALUES (?, ?, ?, 0, ?, ?, ?)",
+      [name, url, imageUrl, category, description, serverId]
     );
     return result.id;
   },
-  async updateApp(id, name, url, imageUrl = null, category = null, description = null) {
+  async updateApp(id, name, url, imageUrl, category, description, serverId) {
     return run(
-      "UPDATE apps SET name = ?, url = ?, image_url = COALESCE(?, image_url), category = ?, description = ? WHERE id = ?",
-      [name, url, imageUrl, category, description, id]
+      "UPDATE apps SET name = ?, url = ?, image_url = ?, category = ?, description = ?, favorite_order = CASE WHEN server_id != ? THEN (SELECT COALESCE(MAX(favorite_order), 0) + 1 FROM apps WHERE server_id = ?) ELSE favorite_order END, server_id = ? WHERE id = ?",
+      [name, url, imageUrl, category, description, serverId, serverId, serverId, id]
     );
   },
   async toggleFavorite(id) {
     return run(
-      "UPDATE apps SET favorite = NOT favorite WHERE id = ?",
-      [id]
+      "UPDATE apps SET favorite = NOT favorite, favorite_order = (SELECT COALESCE(MAX(favorite_order), 0) + 1 FROM apps WHERE server_id = (SELECT server_id FROM apps WHERE id = ?)) WHERE id = ?",
+      [id, id]
     );
   },
-  async replaceAllApps(apps) {
+  async replaceAllApps(apps, servers) {
     await run("BEGIN TRANSACTION");
     try {
       await run("DELETE FROM apps");
+      await run("DELETE FROM servers");
+      for (const server of servers) {
+        await run("INSERT INTO servers (id, name) VALUES (?, ?)", [server.id, server.name]);
+      }
       for (const app of apps) {
         await run(
-          "INSERT INTO apps (name, url, image_url, favorite, category, description, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+          "INSERT INTO apps (name, url, image_url, favorite, category, description, created_at, server_id, favorite_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
           [
             app.name,
             app.url,
@@ -125,6 +137,8 @@ module.exports = {
             app.category || null,
             app.description || null,
             app.created_at || new Date().toISOString(),
+            app.server_id,
+            app.favorite_order,
           ]
         );
       }
@@ -134,9 +148,9 @@ module.exports = {
       throw err;
     }
   },
-  async getCategories() {
+  async getCategories(serverId) {
     const rows = await all(
-      "SELECT DISTINCT category FROM apps WHERE category IS NOT NULL AND category != '' ORDER BY UPPER(category) ASC"
+      "SELECT DISTINCT category FROM apps WHERE server_id = ? AND category IS NOT NULL AND category != '' ORDER BY UPPER(category) ASC", [serverId]
     );
     // Deduplicate case-insensitive (e.g. 'Media' and 'media')
     const seen = new Map();
@@ -148,6 +162,36 @@ module.exports = {
   },
   async deleteApp(id) {
     return run("DELETE FROM apps WHERE id = ?", [id]);
+  },
+  listServers() {
+    return all("SELECT * FROM servers ORDER BY id");
+  },
+  createServer(name) {
+    return run("INSERT INTO servers (name) VALUES (?)", [name]);
+  },
+  renameServer(id, name) {
+    return run("UPDATE servers SET name = ? WHERE id = ?", [name, id]);
+  },
+  deleteServer(id) {
+    return run("DELETE FROM servers WHERE id = ? AND NOT EXISTS (SELECT 1 FROM apps WHERE server_id = ?) AND (SELECT COUNT(*) FROM servers) > 1", [id, id]);
+  },
+  async orderFavorites(serverId, ids) {
+    const favorites = (await this.listApps(serverId)).filter((app) => app.favorite);
+    if (!Array.isArray(ids) || ids.length !== favorites.length || new Set(ids).size !== ids.length || ids.some((id) => !favorites.some((app) => app.id === id))) {
+      const err = new Error("Order must contain every favorite in this server exactly once");
+      err.status = 400;
+      throw err;
+    }
+    await run("BEGIN TRANSACTION");
+    try {
+      for (const [index, id] of ids.entries()) {
+        await run("UPDATE apps SET favorite_order = ? WHERE id = ?", [index, id]);
+      }
+      await run("COMMIT");
+    } catch (err) {
+      await run("ROLLBACK");
+      throw err;
+    }
   },
   close() {
     return initialization.then(() => new Promise((resolve) => {

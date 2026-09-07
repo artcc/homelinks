@@ -50,7 +50,7 @@ We actively welcome your pull requests:
 
 ### Prerequisites
 
-- Node.js 20+
+- Node.js 20.17+
 - Docker & Docker Compose (optional, for testing containers)
 - Git
 
@@ -207,7 +207,26 @@ Add stroke property to SVG icon in list view CSS.
 
 ## 🧪 Testing
 
-Currently, the project relies on manual testing. Automated tests are welcome contributions!
+Run the integration suite and lint before submitting changes:
+
+```bash
+npm ci
+npm run lint
+npm test
+```
+
+`npm test` starts real isolated server processes and a legacy SQLite database. It checks authentication, migration, server CRUD/isolation, configured image limits, image removal/copying, moving apps, persisted favorite order, invalid backup rejection, old/new ZIP restoration, and restart persistence. Test data lives temporarily under ignored `node_modules/` and is removed afterwards; your configured database is not used.
+
+For desktop and mobile-width Chromium checks:
+
+```bash
+npm run test:ui:install
+npm run test:ui
+```
+
+The browser is installed locally under `node_modules/.cache/ms-playwright`. The UI suite additionally exercises the server selector, category/selection persistence, the duplicate editor, image removal, keyboard and drag favorite ordering, moving apps and mobile list overflow. Browser installation requires network access. A mobile viewport is not a substitute for testing on a physical touch device.
+
+Keep `package.json`, `package-lock.json`, and the latest changelog version aligned. Lucide is an exact production dependency served through `/vendor/lucide.js`; do not reintroduce a CDN or an unpinned version. Image limit text and validation must use `/api/config` rather than frontend constants. Server groups are local only; sessions remain in memory. Do not add persistent sessions, automatic backups, PWA behavior or extra service URLs as part of this feature set.
 
 ### Manual Testing Checklist
 
@@ -215,6 +234,11 @@ Currently, the project relies on manual testing. Automated tests are welcome con
 - [ ] CRUD operations for apps (create, read, update, delete)
 - [ ] Image upload and validation
 - [ ] Favorites toggle
+- [ ] Server create/rename/delete, including non-empty and last-server rejection
+- [ ] Server-specific search, categories, pagination and remembered selection
+- [ ] Favorite ordering by drag and keyboard/touch buttons, including after reload
+- [ ] Duplicate/cancel/save with images, and move apps between servers
+- [ ] Backup replacement across all servers, old ZIP compatibility and rejected invalid ZIPs
 - [ ] Theme switching (auto/light/dark)
 - [ ] View switching (grid/list)
 - [ ] Search and pagination

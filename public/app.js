@@ -46,8 +46,18 @@ const searchShortcut = document.querySelector(".search-shortcut");
 const emptyAddBtn = document.getElementById("empty-add-btn");
 const appLibrary = document.getElementById("app-library");
 
-const maxImageBytes = 1 * 1024 * 1024;
-const maxImageSize = 1024;
+let maxImageBytes;
+let maxImageSize;
+const serverSelect = document.getElementById("server-select");
+const appServer = document.getElementById("app-server");
+let servers = [];
+let activeServer = Number(localStorage.getItem("server"));
+let removeImage = false;
+let imageSourceId = null;
+let loadVersion = 0;
+let draggedFavorite = null;
+let ordering = false;
+let imageValidationVersion = 0;
 const pageSize = 6;
 
 let allApps = [];
@@ -80,8 +90,8 @@ function normalizeUrl(url) {
   return `http://${trimmed}`;
 }
 
-async function fetchApps() {
-  const response = await fetch("/api/apps");
+async function fetchApps(serverId) {
+  const response = await fetch(`/api/apps?server_id=${serverId}`);
   if (response.status === 401) {
     window.location.href = "/login.html";
     return [];
@@ -92,16 +102,8 @@ async function fetchApps() {
   return response.json();
 }
 
-async function fetchCategories() {
-  try {
-    const response = await fetch("/api/apps/categories");
-    if (response.ok) {
-      return response.json();
-    }
-  } catch (err) {
-    console.error("Failed to fetch categories:", err);
-  }
-  return [];
+async function fetchCategories(serverId) {
+  return api(`/api/apps/categories?server_id=${serverId}`);
 }
 
 function getDownloadFileName(contentDisposition, fallback) {
@@ -165,7 +167,7 @@ function updateCategorySuggestions(categories) {
 }
 
 function updateCategoryFilter(categories) {
-  const currentValue = categoryFilter.value;
+  const currentValue = localStorage.getItem(`category:${activeServer}`) || "";
   categoryFilter.innerHTML = '<option value="">All categories</option>';
   categories.forEach((cat) => {
     const option = document.createElement("option");
@@ -175,6 +177,8 @@ function updateCategoryFilter(categories) {
   });
   if (categories.includes(currentValue)) {
     categoryFilter.value = currentValue;
+  } else {
+    localStorage.removeItem(`category:${activeServer}`);
   }
 }
 
@@ -247,6 +251,11 @@ function resetForm(restoreFocus = true) {
   formTitle.textContent = "New app";
   saveBtn.textContent = "Save app";
   form.reset();
+  appServer.value = activeServer;
+  removeImage = false;
+  imageSourceId = null;
+  imageValidationVersion++;
+  updateCategorySuggestions([...new Set(allApps.map((app) => app.category).filter(Boolean))].sort());
   imageInput.value = "";
   categoryInput.value = "";
   descriptionInput.value = "";
@@ -340,6 +349,12 @@ function renderApps(apps) {
     const openBtn = node.querySelector(".open");
     const editBtn = node.querySelector(".edit");
     const deleteBtn = node.querySelector(".delete");
+    const duplicateBtn = document.createElement("button");
+    duplicateBtn.className = "btn-ghost duplicate";
+    duplicateBtn.title = `Duplicate ${app.name}`;
+    duplicateBtn.setAttribute("aria-label", duplicateBtn.title);
+    duplicateBtn.innerHTML = '<i data-lucide="copy-plus"></i>';
+    editBtn.after(duplicateBtn);
     const favoriteBtn = node.querySelector(".btn-favorite");
     const starIcon = node.querySelector(".star-icon");
 
@@ -407,14 +422,19 @@ function renderApps(apps) {
       link.click();
     });
 
-    editBtn.addEventListener("click", () => {
-      appId.value = app.id;
+    function editApp(duplicate = false) {
+      const trigger = document.activeElement;
+      resetForm(false);
+      lastFormTrigger = trigger;
+      appId.value = duplicate ? "" : app.id;
+      appServer.value = duplicate ? activeServer : app.server_id;
+      imageSourceId = duplicate ? app.id : null;
       nameInput.value = app.name;
       urlInput.value = app.url;
       categoryInput.value = app.category || "";
       descriptionInput.value = app.description || "";
-      formTitle.textContent = "Edit app";
-      saveBtn.textContent = "Save changes";
+      formTitle.textContent = duplicate ? "Duplicate app" : "Edit app";
+      saveBtn.textContent = duplicate ? "Create copy" : "Save changes";
 
       // Mostrar imagen actual en el preview si existe
       if (app.image_url) {
@@ -429,7 +449,41 @@ function renderApps(apps) {
       }
 
       showForm();
-    });
+    }
+    editBtn.addEventListener("click", () => editApp());
+    duplicateBtn.addEventListener("click", () => editApp(true));
+
+    if (app.favorite) {
+      const favorites = allApps.filter((entry) => entry.favorite);
+      const index = favorites.findIndex((entry) => entry.id === app.id);
+      const controls = document.createElement("div");
+      controls.className = "favorite-order";
+      for (const [delta, icon, label] of [[-1, "arrow-up", "Move favorite earlier"], [1, "arrow-down", "Move favorite later"]]) {
+        const button = document.createElement("button");
+        button.className = "btn-ghost";
+        button.title = `${label}: ${app.name}`;
+        button.setAttribute("aria-label", button.title);
+        button.dataset.order = `${app.id}:${delta}`;
+        button.innerHTML = `<i data-lucide="${icon}"></i>`;
+        button.disabled = ordering || index + delta < 0 || index + delta >= favorites.length;
+        button.addEventListener("click", () => reorderFavorite(app.id, favorites[index + delta].id, button.dataset.order));
+        controls.appendChild(button);
+      }
+      item.appendChild(controls);
+      item.draggable = !ordering;
+      item.addEventListener("dragstart", (event) => {
+        draggedFavorite = app.id;
+        event.dataTransfer.setData("text/plain", String(app.id));
+        event.dataTransfer.effectAllowed = "move";
+      });
+      item.addEventListener("dragend", () => { draggedFavorite = null; });
+      item.addEventListener("dragover", (event) => { if (draggedFavorite !== null) event.preventDefault(); });
+      item.addEventListener("drop", (event) => {
+        event.preventDefault();
+        if (draggedFavorite !== null) reorderFavorite(draggedFavorite, app.id);
+        draggedFavorite = null;
+      });
+    }
 
     deleteBtn.addEventListener("click", async () => {
       if (!confirm(`Delete "${app.name}"?`)) return;
@@ -490,6 +544,8 @@ function renderApps(apps) {
 }
 
 async function load() {
+  const version = ++loadVersion;
+  const serverId = activeServer;
   const showLoading = allApps.length === 0;
   loadError.hidden = true;
   if (showLoading) {
@@ -499,12 +555,14 @@ async function load() {
   }
 
   try {
-    allApps = await fetchApps();
-    const categories = await fetchCategories();
+    const [apps, categories] = await Promise.all([fetchApps(serverId), fetchCategories(serverId)]);
+    if (version !== loadVersion) return;
+    allApps = apps;
     updateCategorySuggestions(categories);
     updateCategoryFilter(categories);
     renderAndPaginate();
   } catch (err) {
+    if (version !== loadVersion) return;
     console.error("Failed to load apps:", err);
     allApps = [];
     renderAndPaginate();
@@ -515,7 +573,7 @@ async function load() {
     }
     showToast("Unable to load apps. Please try again.", "error");
   } finally {
-    if (showLoading) {
+    if (version === loadVersion) {
       loadingState.hidden = true;
       list.hidden = false;
     }
@@ -523,7 +581,7 @@ async function load() {
 }
 
 retryLoadBtn.addEventListener("click", () => {
-  load();
+  initialize();
 });
 
 function renderAndPaginate() {
@@ -541,8 +599,10 @@ function renderAndPaginate() {
 }
 
 async function validateImageFile(file) {
+  if (!maxImageBytes || !maxImageSize) return "Image configuration unavailable. Retry loading.";
+  if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) return "Only PNG, JPG or WebP images are allowed";
   if (file.size > maxImageBytes) {
-    return "Image must be <= 1MB";
+    return `Image must be <= ${maxImageBytes} bytes`;
   }
 
   const image = new Image();
@@ -556,7 +616,7 @@ async function validateImageFile(file) {
     });
 
     if (dimensions.width > maxImageSize || dimensions.height > maxImageSize) {
-      return "Image must be max 1024x1024";
+      return `Image must be max ${maxImageSize} x ${maxImageSize}`;
     }
   } catch (err) {
     return "Invalid image file";
@@ -575,6 +635,10 @@ form.addEventListener("submit", async (event) => {
   const description = descriptionInput.value.trim();
   if (!name || !url) return;
   if (lastImageError) return;
+  if (!maxImageBytes || !maxImageSize) {
+    setFormError("Image configuration unavailable. Retry loading before saving.");
+    return;
+  }
 
   // Deshabilitar botón y mostrar loading state
   saveBtn.disabled = true;
@@ -585,6 +649,9 @@ form.addEventListener("submit", async (event) => {
   const payload = new FormData();
   payload.append("name", name);
   payload.append("url", url);
+  payload.append("server_id", appServer.value);
+  payload.append("remove_image", String(removeImage));
+  if (imageSourceId) payload.append("image_source_id", imageSourceId);
   if (category) {
     payload.append("category", category);
   }
@@ -639,6 +706,7 @@ cancelBtn.addEventListener("click", () => {
 });
 
 imageInput.addEventListener("change", async () => {
+  const version = ++imageValidationVersion;
   const file = imageInput.files[0];
   if (!file) {
     lastImageError = "";
@@ -647,7 +715,9 @@ imageInput.addEventListener("change", async () => {
     return;
   }
 
+  lastImageError = "Validating image...";
   const message = await validateImageFile(file);
+  if (version !== imageValidationVersion) return;
   if (message) {
     lastImageError = message;
     setFormError(message);
@@ -655,10 +725,12 @@ imageInput.addEventListener("change", async () => {
     imagePreview.hidden = true;
   } else {
     lastImageError = "";
+    removeImage = false;
     setFormError("");
     // Mostrar preview
     const reader = new FileReader();
     reader.onload = (e) => {
+      if (version !== imageValidationVersion) return;
       previewImg.src = e.target.result;
       imagePreview.hidden = false;
       if (typeof lucide !== 'undefined') {
@@ -670,6 +742,9 @@ imageInput.addEventListener("change", async () => {
 });
 
 removePreviewBtn.addEventListener("click", () => {
+  imageValidationVersion++;
+  removeImage = true;
+  imageSourceId = null;
   imageInput.value = "";
   imagePreview.hidden = true;
   previewImg.src = "";
@@ -695,6 +770,7 @@ clearSearchBtn.addEventListener("click", () => {
 });
 
 categoryFilter.addEventListener("change", () => {
+  localStorage.setItem(`category:${activeServer}`, categoryFilter.value);
   currentPage = 1;
   renderAndPaginate();
 });
@@ -772,7 +848,7 @@ if (importBtn && importZipInput) {
     if (!file) return;
 
     const confirmed = confirm(
-      "This will replace all current apps and images with the ZIP backup. Continue?"
+      "This will replace ALL servers, apps, favorite orders and images with the ZIP backup. Continue?"
     );
     if (!confirmed) {
       importZipInput.value = "";
@@ -791,7 +867,7 @@ if (importBtn && importZipInput) {
       await importBackup(file);
       resetForm(false);
       currentPage = 1;
-      await load();
+      await initialize();
       showToast("Backup imported successfully", "success");
     } catch (err) {
       showToast(err.message || "Failed to import backup", "error");
@@ -972,7 +1048,112 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
-load();
+async function api(url, options) {
+  const response = await fetch(url, options);
+  if (response.status === 401) window.location.href = "/login.html";
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Request failed");
+  return data;
+}
+
+async function initialize() {
+  try {
+    const config = await api("/api/config");
+    maxImageBytes = config.maxImageBytes;
+    maxImageSize = config.maxImageSize;
+    document.getElementById("image-limits").textContent = `PNG, JPG or WebP. Up to ${maxImageSize} x ${maxImageSize} and ${maxImageBytes} bytes.`;
+    servers = await api("/api/servers");
+    if (!servers.some((server) => server.id === activeServer)) activeServer = servers[0].id;
+    for (const select of [serverSelect, appServer]) {
+      select.replaceChildren(...servers.map((server) => new Option(server.name, server.id)));
+      select.value = activeServer;
+    }
+    await switchServer();
+  } catch (err) {
+    loadError.hidden = false;
+    showToast(err.message, "error");
+  }
+}
+
+async function switchServer() {
+  activeServer = Number(serverSelect.value);
+  localStorage.setItem("server", activeServer);
+  resetForm(false);
+  allApps = [];
+  list.replaceChildren();
+  currentPage = 1;
+  searchInput.value = "";
+  clearSearchBtn.hidden = true;
+  searchShortcut.hidden = false;
+  categoryFilter.value = "";
+  pagination.hidden = true;
+  countLabel.textContent = "";
+  await load();
+}
+serverSelect.addEventListener("change", switchServer);
+appServer.addEventListener("change", async () => {
+  const serverId = appServer.value;
+  try {
+    const categories = await fetchCategories(serverId);
+    if (appServer.value === serverId) updateCategorySuggestions(categories);
+  } catch (err) { showToast(err.message, "error"); }
+});
+
+for (const action of ["add", "rename", "delete"]) {
+  document.getElementById(`server-${action}`).addEventListener("click", async () => {
+    const server = servers.find((entry) => entry.id === activeServer);
+    if (!server) return;
+    let name;
+    if (action === "delete") {
+      if (!confirm(`Delete empty server "${server.name}"?`)) return;
+    } else {
+      name = prompt(action === "add" ? "New server name (1-50 characters)" : "Rename server", action === "add" ? "" : server.name);
+      if (name === null) return;
+    }
+    try {
+      const result = await api(action === "add" ? "/api/servers" : `/api/servers/${server.id}`, {
+        method: action === "add" ? "POST" : action === "rename" ? "PUT" : "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: action === "delete" ? undefined : JSON.stringify({ name }),
+      });
+      if (action === "add") activeServer = result.id;
+      await initialize();
+      showToast("Servers updated");
+    } catch (err) { showToast(err.message, "error"); }
+  });
+}
+
+async function reorderFavorite(source, target, focusKey) {
+  if (ordering || source === target) return;
+  const serverId = activeServer;
+  const ids = allApps.filter((app) => app.favorite).map((app) => app.id);
+  const from = ids.indexOf(source);
+  const to = ids.indexOf(target);
+  if (from < 0 || to < 0) return;
+  ids.splice(from, 1);
+  ids.splice(to, 0, source);
+  ordering = true;
+  renderAndPaginate();
+  try {
+    await api("/api/apps/favorites/order", {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ server_id: serverId, ids }),
+    });
+    if (serverId === activeServer) await load();
+    showToast("Favorite order saved");
+  } catch (err) { showToast(err.message, "error"); }
+  finally {
+    ordering = false;
+    renderAndPaginate();
+    if (serverId === activeServer && focusKey) {
+      const button = list.querySelector(`[data-order="${focusKey}"]`);
+      const fallback = list.querySelector(`[data-order^="${source}:"]:not([disabled])`);
+      (button && !button.disabled ? button : fallback)?.focus();
+    }
+  }
+}
+
+initialize();
 
 window.addEventListener("resize", () => {
   if (!pagination.hidden) {

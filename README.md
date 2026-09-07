@@ -10,9 +10,14 @@ Keep all your Docker services organized in one place. A modern, self-hosted dash
 
 ### Core
 - **Quick access dashboard** for all your Docker services
+- **Local servers** - Named groups with create, rename and delete controls; non-empty and last servers cannot be deleted
+- **Server isolation** - Search, categories, favorites and pagination operate on the active server
+- **Remembered context** - Active server and category per server are stored in your browser; search and page reset when switching servers
+- **Move and duplicate** - Move services from the editor or prefill a new copy, with an independent image file created only when saved
 - **One-click open** in new tab
 - **Favorites system** - Pin important apps to the top
 - **Favorites section** - Favorites grouped above the main list
+- **Favorite ordering** - Drag favorites or use the earlier/later buttons on touch screens and with the keyboard; order is stored per server in SQLite
 - **Category system** - Organize apps with custom categories/tags
 - **App descriptions** - Add notes and details about each app
 - **Search & filter** - Find apps by name, URL, category, or description
@@ -20,7 +25,7 @@ Keep all your Docker services organized in one place. A modern, self-hosted dash
 - **Category autocomplete** - Suggests existing categories when typing
 - **Backup export/import (ZIP)** - Full backup with JSON + uploaded images
 - **Input validation** - Category max 50 chars, description max 500 chars
-- **Optional thumbnails** (jpg/png/webp, max 1024x1024, 1MB)
+- **Optional thumbnails** (jpg/png/webp, default max 1024x1024, 1MB; configurable limits loaded from the backend)
 - **Collapsible form** - Clean interface when not editing
 
 ### UI/UX
@@ -37,7 +42,7 @@ Keep all your Docker services organized in one place. A modern, self-hosted dash
 ### Technical
 - **SQLite persistence** - No external database needed
 - **Docker-first** - Ready for Docker/Portainer deployment
-- **Session persistence** - Login cookie lasts 30 days while the server session is available
+- **In-memory sessions** - Login cookie lasts 30 days; restarting the process requires login again
 - **Rate limiting** - Protection against brute force (5 attempts/15min)
 - **Timing-attack protection** - Secure credential comparison
 - **URL validation** - Only valid HTTP/HTTPS
@@ -53,7 +58,7 @@ Keep all your Docker services organized in one place. A modern, self-hosted dash
 
 - **Backend**: Node.js 20.17+ + Express
 - **Database**: SQLite 3
-- **Frontend**: Vanilla HTML/CSS/JS + Lucide Icons
+- **Frontend**: Vanilla HTML/CSS/JS + local Lucide Icons (pinned to 0.468.0, no CDN dependency)
 - **Deployment**: Docker + docker-compose
 
 ## 🐳 Docker Deployment
@@ -189,6 +194,12 @@ Store the admin password in `ADMIN_PASSWORD` (plain text).
 
 The SQLite database is stored at `DB_PATH` and uploads go to `UPLOAD_DIR`. With Docker, map a volume (e.g. `./data:/app/data`) so data survives container restarts. Login sessions are kept in memory, so users must log in again after the container or Node.js process restarts.
 
+On first upgrade, existing apps are assigned to the initial **Home** server without losing IDs, images, categories or favorites. Servers are local organizational groups, not connections to remote Homelinks instances. Use the header selector and its add/rename/delete buttons to manage them. The app editor's Server field moves an app to another group; a moved favorite is appended to the destination's favorite order.
+
+Removing an image in the editor takes effect when saving: the database reference is cleared and the unused file is removed. Cancel leaves the saved image unchanged. Duplicating an app prefills the editor without creating anything until Save; the copy starts as a non-favorite and receives its own image file. Removing or replacing either copy's image does not affect the other.
+
+Keep a manual backup before upgrades. Run only one Homelinks process per database/uploads directory. Database replacement is transactional and validated before commit; filesystem cleanup follows the commit. A process or disk failure can leave unreferenced files, so this is not a crash-atomic transaction spanning SQLite and the filesystem.
+
 ### Permissions (Linux servers)
 
 If you create a host directory like `/opt/docker/homelinks/data`, these permissions work with the default container user (root):
@@ -226,26 +237,38 @@ sudo chmod 775 /opt/docker/homelinks/data
 - `POST /api/logout` - Logout and destroy session
 
 ### Apps
-- `GET /api/apps` - List all apps (authenticated, ordered by favorite then name)
-- `GET /api/apps/categories` - List all unique categories (authenticated)
-- `POST /api/apps` - Create new app (authenticated, multipart form with `name`, `url`, optional `image`, `category`, `description`)
-- `PUT /api/apps/:id` - Update app (authenticated, multipart form with `name`, `url`, optional `image`, `category`, `description`)
+- `GET /api/config` - Authenticated image limits: `maxImageSize`, `maxImageBytes`
+- `GET /api/apps?server_id=1` - List one server's apps (favorites ordered by stored position, then name; omitted server defaults to the first server)
+- `GET /api/apps/categories?server_id=1` - List one server's unique categories
+- `POST /api/apps` - Create app (authenticated multipart: `name`, `url`, `server_id`, optional `image`, `category`, `description`, `image_source_id` to copy an existing app image)
+- `PUT /api/apps/:id` - Update/move app (same fields; `remove_image=true` explicitly clears the saved image; omission preserves it; cannot combine removal and upload)
+- `PUT /api/apps/favorites/order` - JSON `{ "server_id": 1, "ids": [3, 2] }`; requires every favorite in that server exactly once
 - `PATCH /api/apps/:id/favorite` - Toggle favorite status (authenticated)
 - `DELETE /api/apps/:id` - Delete app (authenticated)
 - `GET /api/apps/export` - Export full backup as ZIP (authenticated)
-- `POST /api/apps/import` - Import full backup from ZIP and replace all existing apps/images (authenticated, max 50MB)
+- `POST /api/apps/import` - Import full backup from ZIP and replace all existing servers/apps/images (authenticated, max 50MB)
+
+### Servers
+- `GET /api/servers` - List local servers (authenticated)
+- `POST /api/servers` - Create server with JSON `{ "name": "NAS" }` (trimmed, 1-50 characters)
+- `PUT /api/servers/:id` - Rename server with the same JSON body
+- `DELETE /api/servers/:id` - Delete an empty server; returns 409 if it is non-empty, missing, or the last server
 
 ### Backup format (ZIP)
 
 Export creates a ZIP file with:
-- `apps.json` - Metadata + apps array
+- `apps.json` - `schemaVersion: 2`, export date, `servers` array (`id`, `name`) and `apps` array including `server_id` and `favorite_order`
 - `uploads/` - App images referenced by `image_url`
 
 Import behavior:
-- **Replace all mode**: current apps are replaced by the backup content
+- **Replace all mode**: ALL servers, apps, favorite orders and images are replaced, regardless of the active server
+- Version 1 backups and legacy bare app arrays import into one **Home** server; unknown versions are rejected
+- Invalid server references, duplicate server IDs, invalid ordering values, duplicate/unsafe ZIP paths and missing/invalid images reject the import before replacing current data
 - Existing uploads from previous apps are removed after successful import
-- ZIP size limit: **50MB**
-- Image rules remain enforced (jpg/png/webp, max 1024x1024, 1MB each)
+- ZIP size and expanded content limit: **50MB** each
+- Image rules use the current backend configuration (jpg/png/webp, default max 1024x1024, 1MB each)
+- Browser preferences (active server, category, theme and layout) and login sessions are not backed up; unavailable selections fall back safely
+- Export fails if a referenced image is missing from disk instead of silently creating an unrestorable ZIP
 
 ## 🩺 Health check
 
@@ -285,7 +308,7 @@ Ensure only one instance is accessing the database. SQLite doesn't support multi
 Check that:
 - The `UPLOAD_DIR` permissions are correct
 - The volume mapping in Docker is set up properly
-- Images are <= 1024x1024 pixels and <= 1MB
+- Images satisfy the configured `MAX_IMAGE_SIZE` and `MAX_IMAGE_BYTES` (defaults: 1024x1024 pixels and 1MB)
 
 ### 404 errors on static files
 

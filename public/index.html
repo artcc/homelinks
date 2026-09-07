@@ -8,7 +8,7 @@
   <link rel="icon" type="image/png" href="/logo_white.png" />
   <link rel="icon" type="image/png" href="/logo_black.png" media="(prefers-color-scheme: dark)" />
   <link rel="stylesheet" href="/styles.css" />
-  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="/vendor/lucide.js"></script>
 </head>
 
 <body class="dashboard-page" style="visibility: hidden;">
@@ -45,6 +45,13 @@
     </a>
 
     <div class="header-actions" aria-label="Workspace actions">
+      <div class="action-group server-controls">
+        <label class="sr-only" for="server-select">Active server</label>
+        <select id="server-select" class="category-filter" aria-label="Active server"></select>
+        <button id="server-add" class="btn-ghost" title="Add server" aria-label="Add server"><i data-lucide="plus"></i></button>
+        <button id="server-rename" class="btn-ghost" title="Rename server" aria-label="Rename server"><i data-lucide="pencil"></i></button>
+        <button id="server-delete" class="btn-ghost btn-danger" title="Delete empty server" aria-label="Delete empty server"><i data-lucide="trash-2"></i></button>
+      </div>
       <div class="action-group">
         <button id="theme-toggle-btn" class="btn-ghost btn-icon-label" title="Change theme" aria-label="Change theme">
           <i data-lucide="monitor" id="theme-icon"></i>
@@ -111,6 +118,10 @@
 
         <form id="app-form" class="editor-form">
           <input type="hidden" id="app-id" />
+          <div class="form-field">
+            <label for="app-server">Server</label>
+            <select id="app-server" class="category-filter" required></select>
+          </div>
 
           <div class="form-field">
             <label for="name">Name <span class="required-mark">Required</span></label>
@@ -137,7 +148,7 @@
 
           <div class="form-field">
             <label for="image">Cover image <span>Optional</span></label>
-            <p class="field-help">PNG, JPG or WebP. Up to 1024 x 1024 and 1 MB.</p>
+            <p class="field-help" id="image-limits">Loading image limits...</p>
             <div class="file-control">
               <i data-lucide="image-plus"></i>
               <input type="file" id="image" accept="image/png,image/jpeg,image/webp" />
