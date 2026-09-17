@@ -59,7 +59,7 @@ Keep all your Docker services organized in one place. A modern, self-hosted dash
 
 ## 🧱 Tech Stack
 
-- **Backend**: Node.js 20.17+ + Express
+- **Backend**: Node.js 24+ + Express
 - **Database**: SQLite 3
 - **Frontend**: Vanilla HTML/CSS/JS + local Lucide Icons (pinned to 0.468.0, no CDN dependency)
 - **Deployment**: Docker + docker-compose

@@ -3,6 +3,9 @@
   "version": "0.0.20",
   "description": "Keep all your Docker apps in one place",
   "main": "src/server.js",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "start": "node src/server.js",
     "lint": "eslint .",

@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Aligned the maximum width of the top bar with the main dashboard content
 - Updated compatible runtime dependencies, including Express, Multer, Sharp, Morgan, Lucide and related packages
 - Updated Playwright within its current major version
+- Migrated the application container and development requirement from Node.js 20 to Node.js 24
+- Updated GitHub Actions to current versions that use the supported Node.js runtime
 
 ### Security
 

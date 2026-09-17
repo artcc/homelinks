@@ -50,7 +50,7 @@ We actively welcome your pull requests:
 
 ### Prerequisites
 
-- Node.js 20.17+
+- Node.js 24+
 - Docker & Docker Compose (optional, for testing containers)
 - Git
 
