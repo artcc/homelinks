@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.20] - 2026-09-17
+
+### Changed
+
+- Aligned the maximum width of the top bar with the main dashboard content
+- Updated compatible runtime dependencies, including Express, Multer, Sharp, Morgan, Lucide and related packages
+- Updated Playwright within its current major version
+
+### Security
+
+- Updated dependencies to resolve known vulnerabilities in archive extraction, request parsing, uploads, image processing and logging
+
 ## [0.0.15] - 2026-09-07
 
 ### Added

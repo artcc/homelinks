@@ -9,6 +9,7 @@ Keep all your Docker services organized in one place. A modern, self-hosted dash
 ## ✨ Features
 
 ### Core
+
 - **Quick access dashboard** for all your Docker services
 - **Local servers** - Named groups with create, rename and delete controls; non-empty and last servers cannot be deleted
 - **Server isolation** - Search, categories, favorites and pagination operate on the active server
@@ -29,6 +30,7 @@ Keep all your Docker services organized in one place. A modern, self-hosted dash
 - **Collapsible form** - Clean interface when not editing
 
 ### UI/UX
+
 - **Grid & List views** - Toggle between card grid (default) and compact list layout
 - **View persistence** - Your layout preference is remembered
 - **Modern grid layout** - Responsive cards (3 cols → 2 → 1)
@@ -40,6 +42,7 @@ Keep all your Docker services organized in one place. A modern, self-hosted dash
 - **Responsive pagination** - Compact label and controls on narrow screens
 
 ### Technical
+
 - **SQLite persistence** - No external database needed
 - **Docker-first** - Ready for Docker/Portainer deployment
 - **In-memory sessions** - Login cookie lasts 30 days; restarting the process requires login again
